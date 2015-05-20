@@ -1,49 +1,26 @@
 package ee.sinchukov.ecbrates;
 
-import android.app.ListActivity;
+import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
 import android.util.Log;
-import android.widget.ArrayAdapter;
-import android.widget.ListAdapter;
-import android.widget.SimpleAdapter;
-
+import android.widget.TextView;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.util.ArrayList;
-
-import ee.sinchukov.ecbrates.HandleXML;
-
-
-public class CurrenciesListActivity extends ListActivity {
+/**
+ * Created by user_39 on 20.05.2015.
+ */
+public class SaveFileInternalStorage extends Activity {
     private static final String TAG = "MainActivity";
-    private static final String FILENAME = "saved_Ecb_Rates.xml";
+    private static final String FILENAME = "helloAndroid.txt";
 
-    ArrayList<Cube> cubeList = new ArrayList<>();
+    SaveFileInternalStorage(String file){
 
-    ArrayList<String> currenciesList = new ArrayList<String>();
-    HandleXML handleXML;
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        handleXML=new HandleXML("http://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml");
-        handleXML.fetchXML();
-        while(handleXML.parsingComplete);
-        currenciesList=handleXML.getRatesList();
-        setListAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, currenciesList));
-
-        // SimpleAdapter
-        String[] from=new String[] { Cube.CURRENCY, Cube.RATE };
-        int[] to=new int[] {R.id.currencyView, R.id.rateView };
-
-        cubeList = handleXML.getCubeList();
-        ListAdapter adapter = new SimpleAdapter(this, cubeList, R.layout.activity_currencies_list,from,to);
-        setListAdapter(adapter);
     }
 
 
@@ -58,7 +35,6 @@ public class CurrenciesListActivity extends ListActivity {
             Log.e(TAG, "File write failed: " + e.toString());
         }
     }
-    
     private String readFromFile(String fileName) {
         String fileContent = "";
         try {
@@ -82,6 +58,5 @@ public class CurrenciesListActivity extends ListActivity {
         }
         return fileContent;
     }
-
 
 }
