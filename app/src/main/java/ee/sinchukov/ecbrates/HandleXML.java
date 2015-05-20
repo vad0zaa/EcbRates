@@ -12,11 +12,12 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * Created by andreyutkin on 14/05/15.
  */
-public class HandleXML {
+public class HandleXML  {
 
     private String urlString = null;
     public volatile boolean parsingComplete = true;
@@ -24,8 +25,15 @@ public class HandleXML {
     private ArrayList<String> currenciesList = new ArrayList<String>();
     private ArrayList<String> ratesList = new ArrayList<String>();
 
+    ArrayList<Cube> cubeList = new ArrayList<>();
+
     public HandleXML(String url){
+        super();
         this.urlString = url;
+    }
+
+    public ArrayList<Cube> getCubeList(){
+        return cubeList;
     }
 
     public ArrayList<String> getCurrenciesList(){
@@ -47,6 +55,9 @@ public class HandleXML {
                         ecbParser.getAttributeCount()==2) {
                     currenciesList.add(ecbParser.getAttributeValue(0));
                     ratesList.add(ecbParser.getAttributeValue(1));
+
+                    // create Cube object and save into array
+                    cubeList.add(new Cube(ecbParser.getAttributeValue(0),ecbParser.getAttributeValue(1)));
                 }
                 eventType = ecbParser.next();
             }
