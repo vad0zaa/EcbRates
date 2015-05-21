@@ -5,6 +5,7 @@ package ee.sinchukov.ecbrates;
  */
 
 
+import android.content.Context;
 import android.util.Log;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -22,9 +23,10 @@ import java.util.ArrayList;
  * Created by andreyutkin on 14/05/15.
  */
 public class HandleXML  {
-
+    Context fileContext;
     private String urlString = null;
     public volatile boolean parsingComplete = true;
+    public volatile boolean getXmlNonComplete = true;
     private XmlPullParserFactory xmlFactoryObject;
     private ArrayList<String> currenciesList = new ArrayList<String>();
     private ArrayList<String> ratesList = new ArrayList<String>();
@@ -34,9 +36,10 @@ public class HandleXML  {
     private String receivedXmlDate = "date and time from parsed XML";
     private static final String TAG = "HandleXML";
 
-    public HandleXML(String url){
+    public HandleXML(String url,Context fileContext){
         super();
         this.urlString = url;
+        this.fileContext = fileContext;
     }
 
     public String getReceivedXmlData(){
@@ -67,19 +70,17 @@ public class HandleXML  {
             while (eventType != XmlPullParser.END_DOCUMENT) {
 
                 if (eventType==XmlPullParser.START_TAG && ecbParser.getName().equals("Cube") &&
-                        ecbParser.getAttributeCount()==2) {
-                    currenciesList.add(ecbParser.getAttributeValue(0));
-                    ratesList.add(ecbParser.getAttributeValue(1));
-
-                    // create Cube object and save into array
-                    cubeList.add(new Cube(ecbParser.getAttributeValue(0),ecbParser.getAttributeValue(1)));
-                }
-                else
-                if (eventType==XmlPullParser.START_TAG && ecbParser.getName().equals("Cube") &&
-                        ecbParser.getAttributeName(0).equals("time")) {
+                        ecbParser.getAttributeCount()==1) {
                     // date from parsed XML
                     receivedXmlDate =ecbParser.getAttributeValue(0);
                 }
+
+                if (eventType==XmlPullParser.START_TAG && ecbParser.getName().equals("Cube") &&
+                        ecbParser.getAttributeCount()==2) {
+                    // create Cube object and save into array
+                    cubeList.add(new Cube(ecbParser.getAttributeValue(0),ecbParser.getAttributeValue(1)));
+                }
+
                 eventType = ecbParser.next();
                 eventType = ecbParser.next();
             }
@@ -90,7 +91,7 @@ public class HandleXML  {
         }
     }
 
-    public void fetchXML(){
+    public void fetchXMLfromURL(){
         Thread thread = new Thread(new Runnable(){
             @Override
             public void run() {
@@ -113,25 +114,6 @@ public class HandleXML  {
                     myparser.setInput(stream, null);
                     populateCurrencyList(myparser);
 
-                    // start build String from input stream
-                    try {
-                        if ( stream != null ) {
-                            InputStreamReader inputStreamReader = new InputStreamReader(stream);
-                            BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
-                            String receiveString = "";
-                            StringBuilder stringBuilder = new StringBuilder();
-                            while ( (receiveString = bufferedReader.readLine()) != null ) {
-                                stringBuilder.append(receiveString);
-                            }
-                            //stream.close();
-                            receivedXmlData = stringBuilder.toString();
-                        }
-                    }
-                     catch (IOException e) {
-                        Log.e(TAG, "Can not build String from input stream: " + e.toString());
-                    }
-
-
                     stream.close();
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -144,4 +126,77 @@ public class HandleXML  {
 
     }
 
+    public void xmlFromUrlToString(){
+        Thread thread = new Thread(new Runnable(){
+            @Override
+            public void run() {
+                try {
+                    URL url = new URL(urlString);
+                    HttpURLConnection conn = (HttpURLConnection)
+                            url.openConnection();
+                    conn.setReadTimeout(10000 /* milliseconds */);
+                    conn.setConnectTimeout(15000 /* milliseconds */);
+                    conn.setRequestMethod("GET");
+                    conn.setDoInput(true);
+                    conn.connect();
+                    InputStream stream = conn.getInputStream();
+
+                    // start build String from input stream
+                    try {
+                        if ( stream != null ) {
+                            InputStreamReader inputStreamReader = new InputStreamReader(stream);
+                            BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
+                            String receiveString = "";
+                            StringBuilder stringBuilder = new StringBuilder();
+                            while ( (receiveString = bufferedReader.readLine()) != null ) {
+                                stringBuilder.append(receiveString);
+                            }
+                            //stream.close();
+                            receivedXmlData = stringBuilder.toString();
+                            getXmlNonComplete = false;
+                        }
+                    }
+                    catch (IOException e) {
+                        Log.e(TAG, "Can not build String from input stream: " + e.toString());
+                    } finally {
+                        stream.close();
+                    }
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+        thread.start();
+
+    }
+
+    public void fetchXMLfromInternalStorage(String xmlFileName){
+        final String fileName = xmlFileName;
+        Thread thread = new Thread(new Runnable(){
+            @Override
+            public void run() {
+                try {
+                    InputStream stream = fileContext.getApplicationContext().openFileInput(fileName);
+
+                    xmlFactoryObject = XmlPullParserFactory.newInstance();
+                    XmlPullParser myparser = xmlFactoryObject.newPullParser();
+
+                    myparser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES
+                            , false);
+                    myparser.setInput(stream, null);
+                    populateCurrencyList(myparser);
+
+                    stream.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+        thread.start();
+
+
+    }
 }
