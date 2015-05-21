@@ -2,6 +2,7 @@ package ee.sinchukov.ecbrates;
 
 import android.app.ListActivity;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.ArrayAdapter;
@@ -22,7 +23,8 @@ import ee.sinchukov.ecbrates.HandleXML;
 public class CurrenciesListActivity extends ListActivity {
     private static final String TAG = "MainActivity";
     private static final String FILENAME = "saved_Ecb_Rates.xml";
-
+    private static final String SETTINGS_NAME = "ecbrates_settings";
+    private static final String PREFS_XML_DATE = "parsed_xml_date";
     ArrayList<Cube> cubeList = new ArrayList<>();
 
     ArrayList<String> currenciesList = new ArrayList<String>();
@@ -44,6 +46,12 @@ public class CurrenciesListActivity extends ListActivity {
         cubeList = handleXML.getCubeList();
         ListAdapter adapter = new SimpleAdapter(this, cubeList, R.layout.activity_currencies_list,from,to);
         setListAdapter(adapter);
+
+        //save xml file to internal storage
+        writeToFile(handleXML.getReceivedXmlData(),FILENAME);
+
+        //save parsed xml file date into preferences
+        saveDataToApplicationSettings(PREFS_XML_DATE,handleXML.getReceivedXmlDate());
     }
 
 
@@ -83,5 +91,23 @@ public class CurrenciesListActivity extends ListActivity {
         return fileContent;
     }
 
+    public void saveDataToApplicationSettings(String key, String value){
+
+        // save key-value to application settings
+        SharedPreferences settings = getSharedPreferences(SETTINGS_NAME, 0);
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putString(key,value);
+        editor.commit();
+
+    }
+
+    public String getDataFromApplicationSettings(String key){
+
+        String value;
+        // save key-value to application settings
+        SharedPreferences settings = getSharedPreferences(SETTINGS_NAME, 0);
+        value = settings.getString(key, "not found");
+        return value;
+    }
 
 }
