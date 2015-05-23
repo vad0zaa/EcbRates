@@ -5,67 +5,114 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
-import android.widget.ArrayAdapter;
 import android.widget.ListAdapter;
 import android.widget.SimpleAdapter;
-
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
 
 
 public class CurrenciesListActivity extends ListActivity {
     private static final String TAG = "MainActivity";
-    private static final String FILENAME = "saved_Ecb_Rates.xml";
     private static final String SETTINGS_NAME = "ecbrates_settings";
     private static final String PREFS_XML_DATE = "parsed_xml_date";
-    ArrayList<Cube> cubeList = new ArrayList<>();
-    private String savedXmlDate;
 
-    ArrayList<String> currenciesList = new ArrayList<String>();
-    HandleXML handleXML;
+    private String xmlDateFromPrefs;
+    private SimpleDateFormat ecbRateDateFormatter;
+
+    private static final String FILENAME = "saved_Ecb_Rates.xml";
+    private static final int ecbUpdatingTimeHour = 15;
+    private static final int ecbUpdatePeriodHours = 24;
+    private static final String ecbRatesTimezone = "CET";
+    private static final String ecbRatesXMLDateFormat = "yyyy-MM-dd";
+    private static final String ecbRatesDefaultDate = "1999-01-01";
+    private  static final String ecbRateUrl = "http://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
+
+    private HandleXML handleXML;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        ecbRateDateFormatter = new SimpleDateFormat(ecbRatesXMLDateFormat);
+        ecbRateDateFormatter.setTimeZone(TimeZone.getTimeZone(ecbRatesTimezone));
 
-        //get saved xml date from PREFS
-        savedXmlDate = getDataFromApplicationSettings(PREFS_XML_DATE);
-        Log.e(TAG, "saved xml date from PREFS: " + savedXmlDate);
+        //date of last saved currency rates
+        xmlDateFromPrefs = getDataFromApplicationSettings(PREFS_XML_DATE);
+        Log.e(TAG, "last update date: "+xmlDateFromPrefs);
+        if(xmlDateFromPrefs.equals("not found")){xmlDateFromPrefs=ecbRatesDefaultDate;}
 
+        // prepare for XML parsing
+        handleXML=new HandleXML(ecbRateUrl, this);
 
-        handleXML=new HandleXML("http://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml", this);
-
-        //save xml file to internal storage
-        handleXML.xmlFromUrlToString();
-        while(handleXML.getXmlNonComplete);
-        writeToFile(handleXML.getReceivedXmlData(),FILENAME);
+        // if rates are not fresh, then get new from URL and save xml file to internal storage
+        if(!isFreshRates(xmlDateFromPrefs)) {
+            handleXML.xmlFromUrlToString();
+            Log.e(TAG, "updating rates from ECB URL ...");
+            while (handleXML.getXmlStringFromUrlNonComplete) ;
+            writeToFile(handleXML.getXmlStringDataFromUrl(), FILENAME);
+            Log.e(TAG, "ECB rates are saved to local file ...");
+            //save parsed xml file date into preferences
+            saveDataToApplicationSettings(PREFS_XML_DATE,handleXML.getReceivedXmlDate());
+            Log.e(TAG, "new xml date saved to Preferences : " + handleXML.getReceivedXmlDate());
+        }
 
         // parse xml from internal storage
-        handleXML.fetchXMLfromInternalStorage(FILENAME);
+        handleXML.fetchXmlFromInternalStorage(FILENAME);
+        while(handleXML.parsingNonComplete);
+        Log.e(TAG, "updated rates from local file ...");
 
-        // parse xml from URL
-        //handleXML.fetchXMLfromURL();
-        while(handleXML.parsingComplete);
-
-        // SimpleAdapter
+        // display rates on screen
         String[] from=new String[] { Cube.CURRENCY, Cube.RATE };
         int[] to=new int[] {R.id.currencyView, R.id.rateView };
-
-        cubeList = handleXML.getCubeList();
-        ListAdapter adapter = new SimpleAdapter(this, cubeList, R.layout.activity_currencies_list,from,to);
+        ListAdapter adapter = new SimpleAdapter(this, handleXML.getCubeList(), R.layout.activity_currencies_list,from,to);
         setListAdapter(adapter);
 
-
-        //save parsed xml file date into preferences
-        saveDataToApplicationSettings(PREFS_XML_DATE,handleXML.getReceivedXmlDate());
-        Log.e(TAG, "save received xml date to PREFS : " + handleXML.getReceivedXmlDate());
     }
 
+    private boolean isFreshRates(String xmlDateFromPrefs){
+        final int MILLI_TO_HOUR = 1000 * 60 * 60;
+        Date currentDate = new Date();
+        Date savedDate=null;
+
+        // parse date of local saved ecb rates xml file
+        try {
+            savedDate = ecbRateDateFormatter.parse(xmlDateFromPrefs);
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+
+        // add time to day of last saved ecb rates, and find what weekday it was
+       Calendar c = Calendar.getInstance();
+        c.setTime(savedDate);
+        c.add(Calendar.HOUR, ecbUpdatingTimeHour);
+        savedDate = c.getTime();
+        SimpleDateFormat weekDayFormat = new SimpleDateFormat("EEEE", Locale.US);
+        String dayOfUpdate = weekDayFormat.format(savedDate);
+
+        // find when we will have next update
+        int nextUpdate = (int) savedDate.getTime() + (ecbUpdatePeriodHours*MILLI_TO_HOUR);
+            if(dayOfUpdate.equalsIgnoreCase("Friday")){
+                // if last update was in Friday then next update will be on Monday, i.e. +48 hours
+                nextUpdate = nextUpdate + (48*MILLI_TO_HOUR);
+            }
+
+        // difference between current time and time of next update
+        int difference = (int) currentDate.getTime() - nextUpdate;
+
+        if(difference >0){
+            // local saved rates are old,  need to update from URL
+            return false;}
+        else{
+            // local saved rates are fresh, use xml from internal storage
+            return true;}
+
+    }
 
     private void writeToFile(String data, String fileName) {
         try {
@@ -77,30 +124,6 @@ public class CurrenciesListActivity extends ListActivity {
         catch (IOException e) {
             Log.e(TAG, "File write failed: " + e.toString());
         }
-    }
-    
-    private String readFromFile(String fileName) {
-        String fileContent = "";
-        try {
-            InputStream inputStream = openFileInput(fileName);
-            if ( inputStream != null ) {
-                InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
-                BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
-                String receiveString = "";
-                StringBuilder stringBuilder = new StringBuilder();
-                while ( (receiveString = bufferedReader.readLine()) != null ) {
-                    stringBuilder.append(receiveString);
-                }
-                inputStream.close();
-                fileContent = stringBuilder.toString();
-            }
-        }
-        catch (FileNotFoundException e) {
-            Log.e(TAG, "File not found: " + e.toString());
-        } catch (IOException e) {
-            Log.e(TAG, "Can not read file: " + e.toString());
-        }
-        return fileContent;
     }
 
     public void saveDataToApplicationSettings(String key, String value){
