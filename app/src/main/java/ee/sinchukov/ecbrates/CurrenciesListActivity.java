@@ -53,12 +53,12 @@ public class CurrenciesListActivity extends ListActivity {
             handleXML.xmlFromUrlToString();
             while (handleXML.getXmlStringFromUrlNonComplete) ;
             writeToFile(handleXML.getXmlStringDataFromUrl(), FILENAME);
-            saveDataToApplicationSettings(PREFS_XML_DATE,handleXML.getReceivedXmlDate());
         }
 
         // parse xml from internal storage
         handleXML.fetchXmlFromInternalStorage(FILENAME);
         while(handleXML.parsingNonComplete);
+        saveDataToApplicationSettings(PREFS_XML_DATE,handleXML.getReceivedXmlDate());
 
         // display rates on screen
         String[] from=new String[] { Cube.CURRENCY, Cube.RATE };
@@ -68,13 +68,14 @@ public class CurrenciesListActivity extends ListActivity {
 
     }
 
-    private boolean isFreshRates(String xmlDateFromPrefs){
+    private boolean isFreshRates(String savedXmlDate){
         final int MILLI_TO_HOUR = 1000 * 60 * 60;
+        Date currentDate = new Date();
         Date savedDate=null;
 
         // parse date of local saved ecb rates xml file
         try {
-            savedDate = dateFormatter.parse(xmlDateFromPrefs);
+            savedDate = dateFormatter.parse(savedXmlDate);
         } catch (ParseException e) {
             e.printStackTrace();
         }
@@ -92,7 +93,7 @@ public class CurrenciesListActivity extends ListActivity {
             }
 
         // difference between current time and time of next update
-        int difference = (int) getCurrentDateEcbTimezone().getTime() - nextUpdate;
+        int difference = (int) currentDate.getTime() - nextUpdate;
 
         if(difference >0){
             // local saved rates are old,  need to update from URL
@@ -101,19 +102,6 @@ public class CurrenciesListActivity extends ListActivity {
             // local saved rates are fresh, use xml from internal storage
             return true;}
 
-    }
-
-    public Date getCurrentDateEcbTimezone(){
-
-        Date currentDate = null;
-        String currentDateStr = dateFormatter.format(new Date());
-
-        try {
-            currentDate =  dateFormatter.parse(currentDateStr);
-        } catch (ParseException e) {
-            e.printStackTrace();
-        }
-        return currentDate;
     }
 
     private void writeToFile(String data, String fileName) {

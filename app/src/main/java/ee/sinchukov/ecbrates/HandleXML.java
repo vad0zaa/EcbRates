@@ -30,7 +30,7 @@ public class HandleXML  {
 
     ArrayList<Cube> cubeList = new ArrayList<>();
     private String xmlStringDataFromUrl = "string builded from parsed XML";
-    private String receivedXmlDate = "date and time from parsed XML";
+    private String receivedXmlDate = "not found";
     private static final String TAG = "MainActivity";
 
     public HandleXML(String url,Context context){
