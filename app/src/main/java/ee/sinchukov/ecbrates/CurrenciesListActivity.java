@@ -19,18 +19,18 @@ import java.util.TimeZone;
 
 public class CurrenciesListActivity extends ListActivity {
     private static final String TAG = "MainActivity";
-    private static final String SETTINGS_NAME = "ecbrates_settings";
+    private static final String SETTINGS_NAME = "ecbrates_app_settings";
     private static final String PREFS_XML_DATE = "parsed_xml_date";
 
     private String xmlDateFromPrefs;
     private SimpleDateFormat dateFormatter;
 
-    private static final String FILENAME = "saved_Ecb_Rates.xml";
+    private static final String FILENAME = "saved_Ecb_Rates_data.xml";
     private static final String ecbUpdatingTime = "15:00:00";
     private static final int ecbUpdatePeriodHours = 24;
     private static final String ecbRatesTimezone = "CET";
     private static final String dateFormat = "yyyy-MM-dd HH:mm:ss";
-    private static final String ecbRatesDefaultDate = "1999-01-01";
+    private static final String ecbRatesDefaultDate = "2015-06-01";
     private  static final String ecbRateUrl = "http://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
 
     private HandleXML handleXML;
@@ -65,6 +65,10 @@ public class CurrenciesListActivity extends ListActivity {
         int[] to=new int[] {R.id.currencyView, R.id.rateView };
         ListAdapter adapter = new SimpleAdapter(this, handleXML.getCubeList(), R.layout.activity_currencies_list,from,to);
         setListAdapter(adapter);
+
+        // save rates to database
+        Log.d(TAG, "--- start insertRatesToDB method ");
+        //handleXML.insertRatesToDB();
 
     }
 

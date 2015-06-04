@@ -5,7 +5,10 @@ package ee.sinchukov.ecbrates;
  */
 
 
+import android.content.ContentValues;
 import android.content.Context;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -20,7 +23,7 @@ import java.net.URL;
 import java.util.ArrayList;
 
 
-public class HandleXML  {
+public class HandleXML {
     Context context;
     private String urlString = null;
     public volatile boolean parsingNonComplete = true;
@@ -32,6 +35,10 @@ public class HandleXML  {
     private String xmlStringDataFromUrl = "string builded from parsed XML";
     private String receivedXmlDate = "not found";
     private static final String TAG = "MainActivity";
+
+    // for sql lite
+    DBHelper dbHelper;
+    public static String tableName = "ecbRatesTable";
 
     public HandleXML(String url,Context context){
         super();
@@ -148,4 +155,54 @@ public class HandleXML  {
 
 
     }
+
+    public void insertRatesToDB(){
+
+        // создаем объект для данных
+        ContentValues cv = new ContentValues();
+
+        // подключаемся к БД
+        Log.d(TAG, "--- try dbHelper.getWritableDatabase ");
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+        Log.d(TAG, "--- Insert into table: ---");
+                // подготовим данные для вставки в виде пар: наименование столбца - значение
+
+        for(Cube cube:cubeList) {
+            cv.put("currency", cube.get(Cube.CURRENCY));
+            cv.put("rate", cube.get(Cube.RATE));
+            // вставляем запись и получаем ее ID
+            long rowID = db.insert(tableName, null, cv);
+            Log.d(TAG, "row inserted, ID = " + rowID);
+        }
+        // закрываем подключение к БД
+        dbHelper.close();
+    }
+
+
+
+    class DBHelper extends SQLiteOpenHelper {
+
+        public DBHelper(Context context) {
+            // конструктор суперкласса
+            super(context, "myDB", null, 1);
+        }
+
+        @Override
+        public void onCreate(SQLiteDatabase db) {
+            Log.d("MainActivity", "--- onCreate database ---");
+            // создаем таблицу с полями
+            db.execSQL("create table"+ HandleXML.tableName +"("
+                    + "id integer primary key autoincrement,"
+                    + "currency text,"
+                    + "rate text" + ");");
+        }
+
+        @Override
+        public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+
+        }
+    }
+
+
 }
