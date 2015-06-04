@@ -1,8 +1,11 @@
 package ee.sinchukov.ecbrates;
 
 import android.app.ListActivity;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.ListAdapter;
@@ -34,7 +37,10 @@ public class CurrenciesListActivity extends ListActivity {
     private  static final String ecbRateUrl = "http://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
 
     private HandleXML handleXML;
-    private Context context;
+
+    // for sql lite
+    DBHelper dbHelper;
+    public static String tableName = "ecbRatesTable";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,9 +74,12 @@ public class CurrenciesListActivity extends ListActivity {
         ListAdapter adapter = new SimpleAdapter(this, handleXML.getCubeList(), R.layout.activity_currencies_list,from,to);
         setListAdapter(adapter);
 
+        // создаем объект для создания и управления версиями БД
+        Log.d(TAG, "--- create DB Helper ");
+        dbHelper = new DBHelper(this);
         // save rates to database
         Log.d(TAG, "--- start insertRatesToDB method ");
-        handleXML.insertRatesToDB();
+        insertRatesToDB();
 
     }
 
@@ -140,5 +149,56 @@ public class CurrenciesListActivity extends ListActivity {
         value = settings.getString(key, "not found");
         return value;
     }
+
+
+    public void insertRatesToDB(){
+
+        // создаем объект для данных
+        ContentValues cv = new ContentValues();
+
+        // подключаемся к БД
+        Log.d(TAG, "--- try dbHelper.getWritableDatabase ");
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+        Log.d(TAG, "--- Insert into table: ---");
+        // подготовим данные для вставки в виде пар: наименование столбца - значение
+
+        for(Cube cube: handleXML.getCubeList()) {
+            cv.put("currency", cube.get(Cube.CURRENCY));
+            cv.put("rate", cube.get(Cube.RATE));
+            // вставляем запись и получаем ее ID
+            long rowID = db.insert(tableName, null, cv);
+            Log.d(TAG, "row inserted, ID = " + rowID);
+        }
+        // закрываем подключение к БД
+        dbHelper.close();
+    }
+
+
+
+    class DBHelper extends SQLiteOpenHelper {
+
+        public DBHelper(Context context) {
+            // конструктор суперкласса
+            super(context, "myDB", null, 1);
+        }
+
+        @Override
+        public void onCreate(SQLiteDatabase db) {
+            Log.d("MainActivity", "--- onCreate database ---");
+            // создаем таблицу с полями
+            db.execSQL("create table "+ tableName +" ("
+                    + "id integer primary key autoincrement,"
+                    + "currency text,"
+                    + "rate text" + ");");
+        }
+
+        @Override
+        public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+
+        }
+    }
+
+
 
 }
