@@ -44,6 +44,9 @@ public class HandleXML {
         super();
         this.urlString = url;
         this.context = context;
+
+        // создаем объект для создания и управления версиями БД
+        dbHelper = new DBHelper(context);
     }
 
     public String getXmlStringDataFromUrl(){

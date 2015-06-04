@@ -34,10 +34,12 @@ public class CurrenciesListActivity extends ListActivity {
     private  static final String ecbRateUrl = "http://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
 
     private HandleXML handleXML;
+    private Context context;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         dateFormatter = new SimpleDateFormat(dateFormat);
         dateFormatter.setTimeZone(TimeZone.getTimeZone(ecbRatesTimezone));
 
@@ -68,7 +70,7 @@ public class CurrenciesListActivity extends ListActivity {
 
         // save rates to database
         Log.d(TAG, "--- start insertRatesToDB method ");
-        //handleXML.insertRatesToDB();
+        handleXML.insertRatesToDB();
 
     }
 
