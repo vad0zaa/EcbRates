@@ -1,15 +1,19 @@
 package ee.sinchukov.ecbrates;
 
+import android.app.AlertDialog;
 import android.app.ListActivity;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.ListAdapter;
 import android.widget.SimpleAdapter;
+import android.widget.Toast;
 
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -27,6 +31,7 @@ public class CurrenciesListActivity extends ListActivity {
 
     private String xmlDateFromPrefs;
     private SimpleDateFormat dateFormatter;
+    public static String newLine = System.getProperty("line.separator");
 
     private static final String FILENAME = "saved_Ecb_Rates_data.xml";
     private static final String ecbUpdatingTime = "15:00:00";
@@ -41,6 +46,7 @@ public class CurrenciesListActivity extends ListActivity {
     // for sql lite
     DBHelper dbHelper;
     public static String tableName = "ecbRatesTable";
+    public String toastText="text";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,10 +83,15 @@ public class CurrenciesListActivity extends ListActivity {
         // создаем объект для создания и управления версиями БД
         Log.d(TAG, "--- create DB Helper ");
         dbHelper = new DBHelper(this);
-        // save rates to database
-        Log.d(TAG, "--- start insertRatesToDB method ");
+
+        // clean table and show message
+        cleanRatesInDB();
+
+        // save rates to database and show message
         insertRatesToDB();
 
+        // read rates from database and show message
+        getRatesFromDB();
     }
 
     private boolean isFreshRates(String savedXmlDate){
@@ -151,8 +162,27 @@ public class CurrenciesListActivity extends ListActivity {
     }
 
 
-    public void insertRatesToDB(){
 
+    public void cleanRatesInDB(){
+        // создаем объект для данных
+        ContentValues cv = new ContentValues();
+
+        // подключаемся к БД
+        Log.d(TAG, "--- try dbHelper.getWritableDatabase ");
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+        Log.d(TAG, "--- Clear table ---");
+        // удаляем все записи
+        int clearCount = db.delete(tableName, null, null);
+        Log.d(TAG, "deleted rows count = " + clearCount);
+
+        showAlert("Done. "+ "Deleted rows = " + clearCount +" Table "+tableName+ "is clean.",this);
+        // закрываем подключение к БД
+        dbHelper.close();
+    }
+
+
+    public void insertRatesToDB(){
         // создаем объект для данных
         ContentValues cv = new ContentValues();
 
@@ -163,13 +193,67 @@ public class CurrenciesListActivity extends ListActivity {
         Log.d(TAG, "--- Insert into table: ---");
         // подготовим данные для вставки в виде пар: наименование столбца - значение
 
+        int counter=0;
         for(Cube cube: handleXML.getCubeList()) {
             cv.put("currency", cube.get(Cube.CURRENCY));
             cv.put("rate", cube.get(Cube.RATE));
             // вставляем запись и получаем ее ID
             long rowID = db.insert(tableName, null, cv);
             Log.d(TAG, "row inserted, ID = " + rowID);
+            counter++;
         }
+        showAlert("inserted "+counter+ " rows into "+tableName+ " table",this);
+        // закрываем подключение к БД
+        dbHelper.close();
+    }
+
+    public void getRatesFromDB(){
+        // создаем объект для данных
+        ContentValues cv = new ContentValues();
+
+        // подключаемся к БД
+        Log.d(TAG, "--- try dbHelper.getWritableDatabase ");
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+
+
+        Log.d(TAG, "--- read rows from table: ---");
+        // делаем запрос всех данных из таблицы, получаем Cursor
+        Cursor c = db.query(tableName, null, null, null, null, null, null);
+
+        int counter=0;
+        StringBuilder message = new StringBuilder();
+        // ставим позицию курсора на первую строку выборки
+        // если в выборке нет строк, вернется false
+        if (c.moveToFirst()) {
+            // определяем номера столбцов по имени в выборке
+            int idColIndex = c.getColumnIndex("id");
+            int currencyColIndex = c.getColumnIndex("currency");
+            int rateColIndex = c.getColumnIndex("rate");
+
+            do {
+                counter++;
+                // получаем значения по номерам столбцов и пишем в лог
+                message.append("ID = " + c.getInt(idColIndex) +
+                        ", currency = " + c.getString(currencyColIndex) +
+                        ", rate = " + c.getString(rateColIndex));
+                message.append(newLine);
+
+                // получаем значения по номерам столбцов и пишем в лог
+                Log.d(TAG,
+                        "ID = " + c.getInt(idColIndex) +
+                                ", name = " + c.getString(currencyColIndex) +
+                                ", email = " + c.getString(rateColIndex));
+                // переход на следующую строку
+                // а если следующей нет (текущая - последняя), то false - выходим из цикла
+            } while (c.moveToNext());
+        } else
+            Log.d(TAG, "0 rows");
+        c.close();
+
+        message.append("Done. Read "+counter+ " rows from table "+tableName);
+        showAlert(message.toString(),this);
+
         // закрываем подключение к БД
         dbHelper.close();
     }
@@ -199,6 +283,17 @@ public class CurrenciesListActivity extends ListActivity {
         }
     }
 
+    public static void showAlert(String message, Context con) {
+        AlertDialog.Builder dialog = new AlertDialog.Builder(con);
+        dialog.setMessage(message);
+        dialog.setPositiveButton(" OK ", new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                dialog.dismiss();
 
+            }
+        });
+        dialog.show();
+
+    }
 
 }
